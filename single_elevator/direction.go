@@ -4,11 +4,12 @@ import (
 	"TTK4145-Heislab/driver-go/elevio"
 )
 
-type Direction int 
+type Direction int
 
 const (
 	Down Direction = iota
-	Up)
+	Up
+)
 
 func (d Direction) convertMD() elevio.MotorDirection {
 	switch d {
@@ -29,5 +30,17 @@ func (d Direction) convertBT() elevio.ButtonType {
 		return elevio.BT_HallUp
 	default:
 		return elevio.BT_Cab
+	}
+}
+
+// invert motordirection to get opposite direction
+func (d Direction) invertMD() Direction {
+	switch d {
+	case Down:
+		return Up
+	case Up:
+		return Down
+	default:
+		return Down
 	}
 }

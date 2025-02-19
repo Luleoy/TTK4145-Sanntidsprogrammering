@@ -7,6 +7,7 @@ const(
 	NumFloors = 4
 	NumElevators = 3
 	NumButtons = 3 
+	Buffer = 1024
 
 	DisconnectTime = 1*time.Second
 	DoorOpenDuration = 3*time.Second

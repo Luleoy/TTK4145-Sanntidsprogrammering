@@ -25,3 +25,13 @@ func (OrderMatrix Orders) OrderinCurrentDirection(floor int, direction Direction
 	}
 	return false
 }
+
+func OrderCompleted(floor int, direction Direction, OrderMatrix Orders, orderCompletedChannel chan<- elevio.ButtonEvent) bool {
+	if OrderMatrix[floor][elevio.BT_Cab] {
+		orderCompletedChannel <- elevio.ButtonEvent{Floor: floor, Button: elevio.BT_Cab}
+	}
+	if OrderMatrix[floor][direction] {
+		orderCompletedChannel <- elevio.ButtonEvent{Floor: floor, Button: direction.convertBT()}
+	}
+	return false
+}

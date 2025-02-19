@@ -36,18 +36,18 @@ func Door(doorClosedChannel chan<- bool,
 
 	for {
 		select {
-			
+
 		case obstruction = <-obstructionChannel: //checking if obstruction is true or false by reading from channel
-			if !obstruction && doorstate == Obstructed { //if not obstruction and STATE is obstructed 
-				elevio.SetDoorOpenLamp(false) //close door 
+			if !obstruction && doorstate == Obstructed { //if not obstruction and STATE is obstructed
+				elevio.SetDoorOpenLamp(false) //close door
 				doorClosedChannel <- true
 				doorstate = Closed //changing STATE to closed
 			}
 			doorObstructedChannel <- obstruction //updating channel with obstruction status
 
-		case <-doorOpenChannel: //checking if door is open by reading from channel (if true) 
+		case <-doorOpenChannel: //checking if door is open by reading from channel (if true)
 			if obstruction {
-				obstructionChannel <- true //send on channel 
+				obstructionChannel <- true //send on channel
 			}
 			switch doorstate {
 			case Closed:
@@ -70,3 +70,14 @@ func Door(doorClosedChannel chan<- bool,
 		}
 	}
 }
+
+/*
+case 1: if not obstruction and STATE is obstructed - close door and change STATE to closed
+case 2: if there is a signal on the channel and if obstruction -
+	switch
+	case 2.1: if STATE is closed - open door, start timer and change STATE to InCountdown
+	case 2.2 if STATE is InCountdown - reset timer
+case 3: picking up signal from timer - if obstruction - change STATE to obstructed, else close door and change STATE to closed
+*/
+
+//må vi ha noe default?
