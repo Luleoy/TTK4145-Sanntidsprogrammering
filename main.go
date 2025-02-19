@@ -50,6 +50,10 @@ func main() {
 				fmt.Printf("Floor Sensor Triggered: %+v\n", floor)
 				elevio.SetFloorIndicator(floor)
 
+			case delivered := <-OrderDeliveredChannel:
+				fmt.Printf("Order Completed: Floor %d, Button %d\n", delivered.Floor, delivered.Button)
+				elevio.SetButtonLamp(delivered.Button, delivered.Floor, false)
+
 			case obstructed := <-drv_obstr:
 				fmt.Printf("Obstruction Switch: %+v\n", obstructed)
 				if obstructed {
