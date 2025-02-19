@@ -1,12 +1,13 @@
 package driver_main
 
+//tester
+
 import (
 	"TTK4145-Heislab/driver-go/elevio"
 	"fmt"
 )
 
 func main() {
-
 
 	numFloors := 4
 
