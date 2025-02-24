@@ -12,35 +12,18 @@ const (
 )
 
 func (d Direction) convertMD() elevio.MotorDirection {
-	switch d {
-	case Down:
-		return elevio.MD_Down
-	case Up:
-		return elevio.MD_Up
-	default:
-		return elevio.MD_Stop
-	}
+	return map[Direction]elevio.MotorDirection{Up: elevio.MD_Up, Down: elevio.MD_Down}[d]
 }
 
 func (d Direction) convertBT() elevio.ButtonType {
-	switch d {
-	case Down:
-		return elevio.BT_HallDown
-	case Up:
-		return elevio.BT_HallUp
-	default:
-		return elevio.BT_Cab
-	}
+	return map[Direction]elevio.ButtonType{Up: elevio.BT_HallUp, Down: elevio.BT_HallDown}[d]
 }
 
 // invert motordirection to get opposite direction
 func (d Direction) invertMD() Direction {
-	switch d {
-	case Down:
-		return Up
-	case Up:
-		return Down
-	default:
-		return Down
-	}
+	return map[Direction]Direction{Up: Down, Down: Up}[d]
+}
+
+func (d Direction) MotorDirectionToString() string {
+	return map[Direction]string{Up: "up", Down: "down"}[d]
 }

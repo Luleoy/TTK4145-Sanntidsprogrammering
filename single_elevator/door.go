@@ -6,16 +6,12 @@ import (
 	"time"
 )
 
-const (
-	DoorOpenDuration = 3 * time.Second
-)
-
 type DoorState int
 
 // doorstates
 const (
-	Open DoorState = iota //iota tildeler Open int-verdien 0, inkrementerer med 1 for hver påfølgende konstant
-	Closed
+	//fjernet Open state
+	Closed DoorState = iota //iota tildeler Open int-verdien 0, inkrementerer med 1 for hver påfølgende konstant
 	Obstructed
 	InCountdown
 )
@@ -33,6 +29,7 @@ func Door(doorClosedChannel chan<- bool,
 	obstruction := false                    //no obstruction when initializing elevator
 	timeCounter := time.NewTimer(time.Hour) //creating a timer and setting to 1 hour
 	var doorstate DoorState = Closed        //door is closed when initializing
+	timeCounter.Stop()                      //++
 
 	for {
 		select {
@@ -43,7 +40,7 @@ func Door(doorClosedChannel chan<- bool,
 				doorClosedChannel <- true
 				doorstate = Closed //changing STATE to closed
 			}
-			doorObstructedChannel <- obstruction //updating channel with obstruction status
+			doorObstructedChannel <- obstruction //updating channel with obstruction status //++?
 
 		case <-doorOpenChannel: //checking if door is open by reading from channel (if true)
 			if obstruction {
@@ -58,8 +55,17 @@ func Door(doorClosedChannel chan<- bool,
 			case InCountdown:
 				timeCounter = time.NewTimer(configuration.DoorOpenDuration)
 
+			case Obstructed:
+				timeCounter = time.NewTimer(configuration.DoorOpenDuration)
+				doorstate = InCountdown
+
+			default:
+				panic("Door state not implemented")
 			}
 		case <-timeCounter.C: //checking if time is up by reading from channel
+			if doorstate != InCountdown {
+				panic("Door state not implemented")
+			}
 			if obstruction {
 				doorstate = Obstructed
 			} else {

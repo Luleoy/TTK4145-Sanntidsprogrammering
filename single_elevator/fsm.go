@@ -38,7 +38,7 @@ func (behaviour Behaviour) ToString() string {
 }
 
 func Elevator(
-	newOrderChannel <-chan *Orders, //receiving new orders
+	newOrderChannel <-chan Orders, //receiving new orders
 	OrderDeliveredChannel chan<- elevio.ButtonEvent, //sending information about completed orders
 	newLocalStateChannel chan<- State, //sending information about the elevators current state
 ) {
@@ -59,9 +59,7 @@ func Elevator(
 
 	//må egt vite hvilken etasje heisen er i når den starter
 
-	//var OrderMatrix Orders //matrix for orders
-
-	OrderMatrix := new(Orders)
+	var OrderMatrix Orders //matrix for orders
 
 	motorTimer := time.NewTimer(configuration.WatchdogTime) //creating a watchdog timer
 	motorTimer.Stop()
@@ -158,19 +156,19 @@ func Elevator(
 			switch state.Behaviour {
 			case Moving:
 				switch {
-				case (*OrderMatrix)[state.Floor][state.Direction]:
+				case OrderMatrix[state.Floor][state.Direction]:
 					elevio.SetMotorDirection(elevio.MD_Stop)
 					doorOpenChannel <- true
 					OrderCompleted(state.Floor, state.Direction, OrderMatrix, OrderDeliveredChannel)
 					state.Behaviour = DoorOpen
 
-				case (*OrderMatrix)[state.Floor][elevio.BT_Cab] && OrderMatrix.OrderinCurrentDirection(state.Floor, state.Direction):
+				case OrderMatrix[state.Floor][elevio.BT_Cab] && OrderMatrix.OrderinCurrentDirection(state.Floor, state.Direction):
 					elevio.SetMotorDirection(elevio.MD_Stop)
 					doorOpenChannel <- true
 					OrderCompleted(state.Floor, state.Direction, OrderMatrix, OrderDeliveredChannel)
 					state.Behaviour = DoorOpen
 
-				case (*OrderMatrix)[state.Floor][elevio.BT_Cab] && !OrderMatrix[state.Floor][state.Direction.invertMD()]:
+				case OrderMatrix[state.Floor][elevio.BT_Cab] && !OrderMatrix[state.Floor][state.Direction.invertMD()]:
 					elevio.SetMotorDirection(elevio.MD_Stop)
 					doorOpenChannel <- true
 					OrderCompleted(state.Floor, state.Direction, OrderMatrix, OrderDeliveredChannel)
@@ -180,7 +178,7 @@ func Elevator(
 					motorTimer = time.NewTimer(configuration.WatchdogTime)
 					motorChannel <- false
 
-				case (*OrderMatrix)[state.Floor][state.Direction.invertMD()]:
+				case OrderMatrix[state.Floor][state.Direction.invertMD()]:
 					elevio.SetMotorDirection(elevio.MD_Stop)
 					doorOpenChannel <- true
 					state.Direction = state.Direction.invertMD()
@@ -202,19 +200,16 @@ func Elevator(
 			}
 			newLocalStateChannel <- state
 
-		case <-newOrderChannel: //newOrders needed to receive data from the channeø and update ordermatrix. receive neworders from the channel, copy its values into ordermatrix, use ordermatrix for the rest of the code
-			newOrders := <-newOrderChannel
-			*OrderMatrix = *newOrders
-
+		case OrderMatrix = <-newOrderChannel:
 			switch state.Behaviour {
 			case Idle:
 				switch {
-				case (*OrderMatrix)[state.Floor][state.Direction] || (*OrderMatrix)[state.Floor][elevio.BT_Cab]:
+				case OrderMatrix[state.Floor][state.Direction] || OrderMatrix[state.Floor][elevio.BT_Cab]:
 					doorOpenChannel <- true
 					OrderCompleted(state.Floor, state.Direction, OrderMatrix, OrderDeliveredChannel)
 					state.Behaviour = DoorOpen
 					newLocalStateChannel <- state
-				case (*OrderMatrix)[state.Floor][state.Direction.invertMD()]:
+				case OrderMatrix[state.Floor][state.Direction.invertMD()]:
 					doorOpenChannel <- true
 					state.Direction = state.Direction.invertMD()
 					OrderCompleted(state.Floor, state.Direction, OrderMatrix, OrderDeliveredChannel)
@@ -237,7 +232,7 @@ func Elevator(
 				}
 			case DoorOpen:
 				switch {
-				case (*OrderMatrix)[state.Floor][elevio.BT_Cab] || (*OrderMatrix)[state.Floor][state.Direction]:
+				case OrderMatrix[state.Floor][elevio.BT_Cab] || OrderMatrix[state.Floor][state.Direction]:
 					doorOpenChannel <- true
 					OrderCompleted(state.Floor, state.Direction, OrderMatrix, OrderDeliveredChannel)
 				}
