@@ -5,80 +5,59 @@ import (
 	"TTK4145-Heislab/driver-go/elevio"
 	"TTK4145-Heislab/single_elevator"
 	"fmt"
+	"time"
 )
 
 func main() {
-	fmt.Println("Started yeah")
+	fmt.Println("Elevator System Starting...")
 
-	//port
-	//heis ID
-
+	// Initialize elevator hardware
 	numFloors := configuration.NumFloors
 	elevio.Init("localhost:15657", numFloors)
 
-	newOrderChannel := make(chan single_elevator.Orders, configuration.Buffer)
-	OrderDeliveredChannel := make(chan elevio.ButtonEvent, configuration.Buffer)
+	// Communication channels
+	newOrderChannel := make(chan *single_elevator.Orders, configuration.Buffer)
+	orderDeliveredChannel := make(chan elevio.ButtonEvent, configuration.Buffer)
 	newLocalStateChannel := make(chan single_elevator.State, configuration.Buffer)
 
-	// Polling channels (from `driver_main`)
+	// Polling channels
 	drv_buttons := make(chan elevio.ButtonEvent)
 	drv_floors := make(chan int)
 	drv_obstr := make(chan bool)
 	drv_stop := make(chan bool)
 
-	go single_elevator.Elevator(newOrderChannel, OrderDeliveredChannel, newLocalStateChannel)
-	fmt.Println("Go routine started yeah")
+	// Start FSM
+	go single_elevator.Elevator(newOrderChannel, orderDeliveredChannel, newLocalStateChannel)
 
-	// Start polling inputs (from `driver_main`)
+	// Start polling inputs
 	go elevio.PollButtons(drv_buttons)
 	go elevio.PollFloorSensor(drv_floors)
 	go elevio.PollObstructionSwitch(drv_obstr)
 	go elevio.PollStopButton(drv_stop)
 
-	// Handle inputs from sensors and buttons
+	// Ensure Elevator Starts at a Valid Floor
 	go func() {
 		for {
 			select {
-			case a := <-drv_buttons:
-				fmt.Printf("Button Pressed: %+v\n", a)
-				var orders single_elevator.Orders
-				orders[a.Floor][a.Button] = true
-				newOrderChannel <- orders
-				elevio.SetButtonLamp(a.Button, a.Floor, true)
-
 			case floor := <-drv_floors:
-				fmt.Printf("Floor Sensor Triggered: %+v\n", floor)
 				elevio.SetFloorIndicator(floor)
-
-			case delivered := <-OrderDeliveredChannel:
-				fmt.Printf("Order Completed: Floor %d, Button %d\n", delivered.Floor, delivered.Button)
-				elevio.SetButtonLamp(delivered.Button, delivered.Floor, false)
-
-			case obstructed := <-drv_obstr:
-				fmt.Printf("Obstruction Switch: %+v\n", obstructed)
-				if obstructed {
-					elevio.SetMotorDirection(elevio.MD_Stop)
-				}
-
-			case stop := <-drv_stop:
-				fmt.Printf("Stop Button Pressed: %+v\n", stop)
-				for f := 0; f < numFloors; f++ {
-					for b := elevio.ButtonType(0); b < 3; b++ {
-						elevio.SetButtonLamp(b, f, false)
-					}
-				}
+				fmt.Println("Elevator initialized at floor:", floor)
+				return
+			default:
+				elevio.SetMotorDirection(elevio.MD_Down) // Move down until reaching a floor
+				time.Sleep(100 * time.Millisecond)
 			}
 		}
 	}()
 
-	// Monitor elevator state updates
+	// Monitor Elevator State for Debugging
 	go func() {
 		for state := range newLocalStateChannel {
-			fmt.Printf("Elevator State Updated: Floor %d, Direction %v, Behaviour %v\n",
-				state.Floor, state.Direction, state.Behaviour.ToString())
+			fmt.Printf("State Update: Floor %d, Direction %v, Behaviour %v\n",
+				state.Floor, state.Direction, state.Behaviour)
 		}
 	}()
 
-	// Prevent `main.go` from exiting
+	// Keep main alive
 	select {}
 }
