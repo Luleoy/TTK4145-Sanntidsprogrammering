@@ -16,11 +16,13 @@ const (
 	InCountdown
 )
 
+// Door(obstructedChannel, timerOutChannel, resetTimerChannel) //MÅ FIKSES OPP I
 // <- before chan means receiving channel
 // <- after chan means sending channel
 func Door(doorClosedChannel chan<- bool,
 	doorOpenChannel <-chan bool,
-	doorObstructedChannel chan<- bool) { //doorObstructedChannel: sending information about whether or not the door is blocked
+	doorObstructedChannel chan<- bool,
+	timerOutChannel chan<- bool) { //doorObstructedChannel: sending information about whether or not the door is blocked
 
 	elevio.SetDoorOpenLamp(false)
 	obstructionChannel := make(chan bool)               //creating a channel to check if door is obstructed

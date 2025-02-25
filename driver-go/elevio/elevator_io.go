@@ -1,9 +1,11 @@
 package elevio
 
-import "time"
-import "sync"
-import "net"
-import "fmt"
+import (
+	"fmt"
+	"net"
+	"sync"
+	"time"
+)
 
 
 

@@ -3,6 +3,173 @@ package single_elevator
 import (
 	"TTK4145-Heislab/configuration"
 	"TTK4145-Heislab/driver-go/elevio"
+	"time"
+)
+
+type State struct { //the elevators current state
+	Floor     int
+	Direction Direction
+	Behaviour Behaviour //behaviours: Idle, Moving and DoorOpen
+}
+
+type Behaviour int
+
+const (
+	Idle Behaviour = iota
+	Moving
+	DoorOpen //completing current order at requested floor
+)
+
+// can print out behaviour of elevator
+func (behaviour Behaviour) ToString() string {
+	switch behaviour {
+	case Idle:
+		return "Idle"
+	case Moving:
+		return "Moving"
+	case DoorOpen:
+		return "DoorOpen"
+	default:
+		return "Unknown"
+	}
+}
+
+func Elevator(
+	newOrderChannel <-chan Orders, //receiving new orders FROM ORDER MANAGER 
+	OrderDeliveredChannel chan<- elevio.ButtonEvent, //sending information about completed orders TO ORDER MANAGER 
+	newLocalStateChannel chan<- State, //sending information about the elevators current state TO ORDER MANAGER 
+) {
+
+	//creating channels for communication
+	timerOutChannel := make(chan bool)
+	floorEnteredChannel := make(chan int)    //tells which floor elevator is at
+	obstructedChannel := make(chan bool, 16)
+
+	//starting go-routines for foor and floorsensor
+	go Door(obstructedChannel, timerOutChannel)
+	go elevio.PollFloorSensor(floorEnteredChannel)
+
+	//initializing elevator to go down
+	elevio.SetMotorDirection(elevio.MD_Down)
+	state := State{Direction: Down, Behaviour: Moving}
+
+	var OrderMatrix Orders //matrix for orders
+
+	motorTimer := time.NewTimer(configuration.WatchdogTime) //creating a watchdog timer
+	motorTimer.Stop()
+
+	for {
+		//watchdogtimer.kick()
+		select {
+
+		case doorTimerFinished := <- timerOutChannel: 
+			switch state.Behaviour {
+			case DoorOpen:
+				elvio.SetDoorOpenLamp(false)
+				// should we start moving?
+				// if not state = IDLE
+			case Moving:
+				// what? crash program???
+			}
+
+
+		case obstr := <- obstrCh:
+			// updatedState = gotNewObstruction(state, obstr);
+			state.obstr = obstr
+			switch state.Behaviour {
+			case Moving:
+				continue;
+			case DoorOpen:
+				if (obstr) {
+					resetDoorTimerCh <- true
+				}
+			case Idle:
+				continue;
+			}
+		case state.Floor = <-floorEnteredChannel:
+			elevio.SetFloorIndicator(state.Floor)
+			// motorTimer.Stop()
+			switch state.Behaviour {
+
+			case Moving:
+				completedOrdersList = getOrdersinDir(order, floor, dir)
+
+						func getOrdersinDir(order, floor, dir) []BtnType {
+							completed = []elevio.ButtonType
+							if orders[floor][CAB] {
+								// add cab
+							}
+						}
+				if !completedOrdersList.is_empty() {
+					elevio.SetMotorDirection(elevio.MD_Stop)
+					elvio.SetDoorOpenLamp(true)
+					state = DoorOpen
+					resetDoorTimerCh <- true
+					for completedOrder in completedOrdersList {
+						completedCh <- completedOrder
+					}
+				}
+				// if orderAtfloor(orders, floor, direction) {
+				// 	elevio.SetMotorDirection(elevio.MD_Stop)
+				// 	OrderCompleted(state.Floor, state.Direction, OrderMatrix, OrderDeliveredChannel)
+				// 	// send updated 
+
+				// }
+
+				switch {
+				case OrderMatrix[state.Floor][state.Direction]:
+					elevio.SetMotorDirection(elevio.MD_Stop)
+					doorOpenChannel <- true
+					OrderCompleted(state.Floor, state.Direction, OrderMatrix, OrderDeliveredChannel)
+					state.Behaviour = DoorOpen
+
+				case OrderMatrix[state.Floor][elevio.BT_Cab] && OrderMatrix.OrderinCurrentDirection(state.Floor, state.Direction):
+					elevio.SetMotorDirection(elevio.MD_Stop)
+					doorOpenChannel <- true
+					OrderCompleted(state.Floor, state.Direction, OrderMatrix, OrderDeliveredChannel)
+					state.Behaviour = DoorOpen
+
+				case OrderMatrix[state.Floor][elevio.BT_Cab] && !OrderMatrix[state.Floor][state.Direction.invertMD()]:
+					elevio.SetMotorDirection(elevio.MD_Stop)
+					doorOpenChannel <- true
+					OrderCompleted(state.Floor, state.Direction, OrderMatrix, OrderDeliveredChannel)
+					state.Behaviour = DoorOpen
+
+				case OrderMatrix[state.Floor][state.Direction.invertMD()]:
+					elevio.SetMotorDirection(elevio.MD_Stop)
+					doorOpenChannel <- true
+					state.Direction = state.Direction.invertMD()
+					OrderCompleted(state.Floor, state.Direction, OrderMatrix, OrderDeliveredChannel)
+					state.Behaviour = DoorOpen
+
+				case OrderMatrix.OrderinCurrentDirection(state.Floor, state.Direction.invertMD()):
+					state.Direction = state.Direction.invertMD()
+					elevio.SetMotorDirection(state.Direction.convertMD())
+					motorTimer = time.NewTimer(configuration.WatchdogTime)
+
+				default:
+					elevio.SetMotorDirection(elevio.MD_Stop)
+					state.Behaviour = Idle
+				}
+			default:
+				panic("FloorEnteredChannel received in wrong state")
+			}
+			newLocalStateChannel <- state
+		}
+	}
+}
+
+
+
+
+
+
+/*
+package single_elevator
+
+import (
+	"TTK4145-Heislab/configuration"
+	"TTK4145-Heislab/driver-go/elevio"
 	"fmt"
 	"time"
 )
@@ -112,9 +279,11 @@ func Elevator(
 
 		6. case: motorChannel. Regained motor power
 
-	*/
+*/
 
+/*
 	for {
+		watchdogtimer.kick()
 		select {
 
 		case <-doorClosedChannel:
@@ -174,8 +343,6 @@ func Elevator(
 					OrderCompleted(state.Floor, state.Direction, OrderMatrix, OrderDeliveredChannel)
 					state.Behaviour = DoorOpen
 
-				case OrderMatrix.OrderinCurrentDirection(state.Floor, state.Direction):
-					motorTimer = time.NewTimer(configuration.WatchdogTime)
 					motorChannel <- false
 
 				case OrderMatrix[state.Floor][state.Direction.invertMD()]:
@@ -247,11 +414,11 @@ func Elevator(
 				state.Motorstop = true
 				newLocalStateChannel <- state
 			}
-		case obstruction := <-obstructedChannel:
-			if obstruction != state.Obstructed {
-				state.Obstructed = obstruction
-				newLocalStateChannel <- state
-			}
+		// case obstruction := <-obstructedChannel:
+		// 	if obstruction != state.Obstructed {
+		// 		state.Obstructed = obstruction
+		// 		newLocalStateChannel <- state
+		// 	}
 		case motor := <-motorChannel:
 			if state.Motorstop {
 				fmt.Println("Connection to motor restored")
@@ -261,3 +428,4 @@ func Elevator(
 		}
 	}
 }
+*/

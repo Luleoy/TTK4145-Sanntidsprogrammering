@@ -15,7 +15,7 @@ func SetLights(orderMatrix Orders) { //skru av og på lys
 
 type Orders [configuration.NumFloors][configuration.NumButtons]bool //creating matrix to take orders. floors*buttons
 
-// checking to see if there are any orders on the direction elevator is moving
+/*
 func (OrderMatrix Orders) OrderinCurrentDirection(floor int, direction Direction) bool {
 	switch direction {
 	case Up:
@@ -41,15 +41,41 @@ func (OrderMatrix Orders) OrderinCurrentDirection(floor int, direction Direction
 	}
 
 }
+*/
 
 func OrderCompleted(floor int, direction Direction, OrderMatrix Orders, orderCompletedChannel chan<- elevio.ButtonEvent) {
 	if OrderMatrix[floor][elevio.BT_Cab] {
 		orderCompletedChannel <- elevio.ButtonEvent{Floor: floor, Button: elevio.BT_Cab}
-		OrderMatrix[floor][elevio.BT_Cab] = false //fjerner order
 	}
 	if OrderMatrix[floor][direction] {
 		orderCompletedChannel <- elevio.ButtonEvent{Floor: floor, Button: direction.convertBT()}
-		OrderMatrix[floor][direction] = false //fjerner order
 	}
 	SetLights(OrderMatrix)
+}
+
+func orderHere(orders Orders, floor int) bool {
+	for b := 0; b < configuration.NumButtons; b++ {
+		if orders[floor][b] == true { // Hvis det finnes en aktiv forespørsel
+			return true
+		}
+	}
+	return false
+}
+
+func ordersAbove(orders Orders, floor int) bool {
+	for f := floor + 1; f < configuration.NumFloors; f++ {
+		if orderHere(orders, f) {
+			return true
+		}
+	}
+	return false
+}
+
+func ordersBelow(orders Orders, floor int) bool {
+	for f := floor - 1; f >= 0; f-- {
+		if orderHere(orders, f) {
+			return true
+		}
+	}
+	return false
 }
