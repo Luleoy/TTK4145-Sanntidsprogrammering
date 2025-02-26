@@ -33,12 +33,12 @@ func (behaviour Behaviour) ToString() string {
 	}
 }
 
-//WHERE TO UPDATE FLOOR *********
+//WHERE TO UPDATE FLOOR - updating on channel at all times.
 //resetting av TIMER ved dooropen ++++
 
 func SingleElevator(
 	newOrderChannel <-chan Orders, //receiving new orders FROM ORDER MANAGER
-	OrderDeliveredChannel chan<- elevio.ButtonEvent, //sending information about completed orders TO ORDER MANAGER
+	completedOrderChannel chan<- elevio.ButtonEvent, //sending information about completed orders TO ORDER MANAGER
 	newLocalStateChannel chan<- State, //sending information about the elevators current state TO ORDER MANAGER
 ) {
 
@@ -67,11 +67,11 @@ func SingleElevator(
 				elevio.SetDoorOpenLamp(false)
 				//hvis på vei nedover og ser at order above, kommer den nå til å utføre det.
 				if ordersAbove(OrderMatrix, state.Floor) || state.Direction == Up {
-					elevio.SetMotorDirection(1)
+					elevio.SetMotorDirection(elevio.MD_Up)
 					state.Behaviour = Moving
 				}
 				if ordersBelow(OrderMatrix, state.Floor) || state.Direction == Down {
-					elevio.SetMotorDirection(-1)
+					elevio.SetMotorDirection(elevio.MD_Down)
 					state.Behaviour = Moving
 				}
 				if orderHere(OrderMatrix, state.Floor) {
@@ -96,6 +96,30 @@ func SingleElevator(
 			case Idle:
 				continue
 			}
+		case state.Floor = <-floorEnteredChannel: //if order at current floor
+			elevio.SetFloorIndicator(state.Floor)
+			//sjekker om vi har bestillinger i state.Floor, if yes. stop. and clear floor orders
+
+			switch state.Behaviour {
+			case Moving:
+				//liste med completedorders som fullføres i denne IF setningen  
+				completedOrdersList = OrderMatrix.OrderinCurrentDirection(state.Floor, state.Direction)
+
+				if orderHere(OrderMatrix, state.Floor) {
+					elevio.SetMotorDirection(elevio.MD_Stop)
+					Door() //WE NEED TO FIX THE DOOR
+					//requests cleared 
+					SetLights(OrderMatrix)
+					state.Behaviour = DoorOpen
+					//oppdatere sånn at vi kan sende på kanalen at completedorder 
+					for completedOrder in completedOrdersList {
+						completedOrderChannel <- completedOrder
+					}
+				}
+			default:
+			}
+		case newOrder := <-newOrderChannel:
+			//her håndterer vi hvordan motoren skal kjøre og i hvilken retning etc. Buttonpressed maybe baby
 
 		}
 	}

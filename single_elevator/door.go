@@ -6,6 +6,8 @@ import (
 	"time"
 )
 
+//DOOR skal skru på lys i tre sekunder, håndtere obstructions og timer
+
 type DoorState int
 
 // doorstates

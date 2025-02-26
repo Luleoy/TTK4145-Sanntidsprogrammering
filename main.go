@@ -16,7 +16,7 @@ func main() {
 
 	// Communication channels
 	newOrderChannel := make(chan single_elevator.Orders, configuration.Buffer)
-	orderDeliveredChannel := make(chan elevio.ButtonEvent, configuration.Buffer)
+	completedOrderChannel := make(chan elevio.ButtonEvent, configuration.Buffer)
 	newLocalStateChannel := make(chan single_elevator.State, configuration.Buffer)
 
 	// Polling channels
@@ -26,7 +26,7 @@ func main() {
 	// drv_stop := make(chan bool)
 
 	// Start FSM
-	go single_elevator.Elevator(newOrderChannel, orderDeliveredChannel, newLocalStateChannel)
+	go single_elevator.Elevator(newOrderChannel, completedOrderChannel, newLocalStateChannel)
 
 	
 	//go order manager 

@@ -15,7 +15,7 @@ func SetLights(orderMatrix Orders) { //skru av og på lys
 
 type Orders [configuration.NumFloors][configuration.NumButtons]bool //creating matrix to take orders. floors*buttons
 
-/*
+// getorderincurrentdirection
 func (OrderMatrix Orders) OrderinCurrentDirection(floor int, direction Direction) bool {
 	switch direction {
 	case Up:
@@ -39,18 +39,6 @@ func (OrderMatrix Orders) OrderinCurrentDirection(floor int, direction Direction
 	default:
 		panic("Invalid direction")
 	}
-
-}
-*/
-
-func OrderCompleted(floor int, direction Direction, OrderMatrix Orders, orderCompletedChannel chan<- elevio.ButtonEvent) {
-	if OrderMatrix[floor][elevio.BT_Cab] {
-		orderCompletedChannel <- elevio.ButtonEvent{Floor: floor, Button: elevio.BT_Cab}
-	}
-	if OrderMatrix[floor][direction] {
-		orderCompletedChannel <- elevio.ButtonEvent{Floor: floor, Button: direction.convertBT()}
-	}
-	SetLights(OrderMatrix)
 }
 
 func orderHere(orders Orders, floor int) bool {
@@ -78,4 +66,20 @@ func ordersBelow(orders Orders, floor int) bool {
 		}
 	}
 	return false
+}
+
+func OrderCompletedatCurrentFloor(floor int, direction Direction, OrderMatrix Orders) [][]int {
+	//lage liste over det vi skal fjerne
+	var completedOrdersList [][]int //kolonne 1 er floor, kolonne 2 er button
+	completedOrdersList.append(floor, elevio.BT_CAB)
+	switch direction {
+	case elevio.MD_Up:
+		completedOrdersList.append(floor, elevio.BT_HallUp)
+	case elevio.MD_Down:
+		completedOrdersList.append(floor, elevio.BT_HallDown)
+	case elevio.MD_Stop:
+		completedOrdersList.append(floor, elevio.BT_HallUp)
+		completedOrdersList.append(floor, elevio.BT_HallDown)
+	}
+	return completedOrdersList
 }

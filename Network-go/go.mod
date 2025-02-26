@@ -1,6 +1,7 @@
 module Network-go
 
-require Network-go v0.0.0
+go 1.16
+
 replace Network-go => ./Network-go
 
-go 1.16
+
