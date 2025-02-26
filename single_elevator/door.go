@@ -1,30 +1,26 @@
 package single_elevator
 
 import (
-	"TTK4145-Heislab/configuration"
 	"TTK4145-Heislab/driver-go/elevio"
 	"time"
 )
 
-//DOOR skal skru på lys i tre sekunder, håndtere obstructions og timer
+//DOOR skal håndtere obstructions og timer
 
 type DoorState int
 
 // doorstates
 const (
-	//fjernet Open state
 	Closed DoorState = iota //iota tildeler Open int-verdien 0, inkrementerer med 1 for hver påfølgende konstant
 	Obstructed
 	InCountdown
 )
 
-// Door(obstructedChannel, timerOutChannel, resetTimerChannel) //MÅ FIKSES OPP I
 // <- before chan means receiving channel
 // <- after chan means sending channel
-func Door(doorClosedChannel chan<- bool,
-	doorOpenChannel <-chan bool,
-	doorObstructedChannel chan<- bool,
-	timerOutChannel chan<- bool) { //doorObstructedChannel: sending information about whether or not the door is blocked
+func Door(obstructedChannel chan<- bool,
+	timerOutChannel <-chan bool,
+	resetTimerChannel <-chan bool) { //doorObstructedChannel: sending information about whether or not the door is blocked
 
 	elevio.SetDoorOpenLamp(false)
 	obstructionChannel := make(chan bool)               //creating a channel to check if door is obstructed
@@ -37,36 +33,13 @@ func Door(doorClosedChannel chan<- bool,
 
 	for {
 		select {
-
 		case obstruction = <-obstructionChannel: //checking if obstruction is true or false by reading from channel
 			if !obstruction && doorstate == Obstructed { //if not obstruction and STATE is obstructed
 				elevio.SetDoorOpenLamp(false) //close door
-				doorClosedChannel <- true
-				doorstate = Closed //changing STATE to closed
+				doorstate = Closed            //changing STATE to closed
 			}
-			doorObstructedChannel <- obstruction //updating channel with obstruction status //++?
-
-		case <-doorOpenChannel: //checking if door is open by reading from channel (if true)
-			if obstruction {
-				obstructionChannel <- true //send on channel
-			}
-			switch doorstate {
-			case Closed:
-				elevio.SetDoorOpenLamp(true)
-				timeCounter = time.NewTimer(configuration.DoorOpenDuration)
-				doorstate = InCountdown
-
-			case InCountdown:
-				timeCounter = time.NewTimer(configuration.DoorOpenDuration)
-
-			case Obstructed:
-				timeCounter = time.NewTimer(configuration.DoorOpenDuration)
-				doorstate = InCountdown
-
-			default:
-				panic("Door state not implemented")
-			}
-		case <-timeCounter.C: //checking if time is up by reading from channel
+			obstructedChannel <- obstruction //updating channel with obstruction status //++?
+		case <-timerOutChannel:
 			if doorstate != InCountdown {
 				panic("Door state not implemented")
 			}
@@ -74,12 +47,14 @@ func Door(doorClosedChannel chan<- bool,
 				doorstate = Obstructed
 			} else {
 				elevio.SetDoorOpenLamp(false)
-				doorClosedChannel <- true
 				doorstate = Closed
 			}
 		}
 	}
 }
+//go routine for timer 
+3 sek 
+timeroutchannel <- true 
 
 /*
 case 1: if not obstruction and STATE is obstructed - close door and change STATE to closed

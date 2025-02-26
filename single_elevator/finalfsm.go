@@ -1,6 +1,7 @@
 package single_elevator
 
 import (
+	"TTK4145-Heislab/configuration"
 	"TTK4145-Heislab/driver-go/elevio"
 )
 
@@ -33,6 +34,15 @@ func (behaviour Behaviour) ToString() string {
 	}
 }
 
+var timerOutChannel = make(chan bool)
+func startTimer(duration configuration.DoorOpenDuration) {
+	go func() {
+		time.Sleep(duration)
+		timerOutChannel <- true
+	}()
+}
+
+
 //WHERE TO UPDATE FLOOR - updating on channel at all times.
 //resetting av TIMER ved dooropen ++++
 
@@ -59,13 +69,16 @@ func SingleElevator(
 	var OrderMatrix Orders //matrix for orders
 	var completedOrdersList [][]int //kolonne 1 er floor, kolonne 2 er button 
 
+	//timeroutchannel - må sende en verdi til den noe sted 
+
 	for {
 		//Watchdog??
 		select {
 		case <-timerOutChannel:
 			switch state.Behaviour {
 			case DoorOpen:
-				elevio.SetDoorOpenLamp(false)
+				elevio.SetDoorOpenLamp(true)
+				startTimer(configuration.DoorOpenDuration)
 				//hvis på vei nedover og ser at order above, kommer den nå til å utføre det.
 				if ordersAbove(OrderMatrix, state.Floor) || state.Direction == Up {
 					elevio.SetMotorDirection(elevio.MD_Up)
@@ -83,7 +96,7 @@ func SingleElevator(
 			case Moving:
 				// what? crash program???
 			}
-
+			//OBSTRUCTION MÅ HÅNDTERE ALT 
 		case obstr := <-obstructedChannel:
 			// updatedState = gotNewObstruction(state, obstr);
 			state.Obstructed = obstr
@@ -92,25 +105,24 @@ func SingleElevator(
 				continue
 			case DoorOpen:
 				if obstr {
-					resetTimerChannel <- true
+					elevio.SetDoorOpenLamp(true)
+					startTimer(configuration.DoorOpenDuration)
 				}
 			case Idle:
 				continue
 			}
+			//CASE OBSTRUCTED 
 		case state.Floor = <-floorEnteredChannel: //if order at current floor
 			elevio.SetFloorIndicator(state.Floor)
 			//sjekker om vi har bestillinger i state.Floor, if yes. stop. and clear floor orders
 
 			switch state.Behaviour {
 			case Moving:
-				//liste med completedorders som fullføres i denne IF setningen  
-				completedOrdersList = OrderMatrix.OrderinCurrentDirection(state.Floor, state.Direction)
-
 				if orderHere(OrderMatrix, state.Floor) {
 					elevio.SetMotorDirection(elevio.MD_Stop)
+					completedOrdersList = OrderCompletedatCurrentFloor(state.Floor, Direction(state.Direction.convertMD()))
 					Door() //WE NEED TO FIX THE DOOR
 					//requests cleared 
-					SetLights(OrderMatrix)
 					state.Behaviour = DoorOpen
 					//oppdatere sånn at vi kan sende på kanalen at completedorder 
 					for completedOrder in completedOrdersList {
@@ -121,7 +133,11 @@ func SingleElevator(
 			}
 		case newOrder := <-newOrderChannel:
 			//her håndterer vi hvordan motoren skal kjøre og i hvilken retning etc. Buttonpressed maybe baby
-
+			//få heisen til å gå til order fra order matrix - se hva fra timer vi kan bruke i denne istedenfor 
 		}
 	}
 }
+
+
+//DOOR - SETTE PÅ DOOROPEN LAMP OG STARTE EN TIMER 
+//OBSTRUCTION I FSM MÅ HÅNDTERE DET 

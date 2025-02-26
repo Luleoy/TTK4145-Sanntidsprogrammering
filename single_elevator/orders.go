@@ -68,18 +68,18 @@ func ordersBelow(orders Orders, floor int) bool {
 	return false
 }
 
-func OrderCompletedatCurrentFloor(floor int, direction Direction, OrderMatrix Orders) [][]int {
-	//lage liste over det vi skal fjerne
-	var completedOrdersList [][]int //kolonne 1 er floor, kolonne 2 er button
-	completedOrdersList = append(completedOrdersList, []int{floor, elevio.BT_Cab})
+// er syntax riktig her??
+func OrderCompletedatCurrentFloor(floor int, direction Direction) [][]int {
+	var completedOrdersList [][]int //kolonne 1 er floor, kolonne 2 er button - list som skal sendes til ordermanager med fullførte bestillinger
+	completedOrdersList = append(completedOrdersList, []int{floor, int(elevio.BT_Cab)})
 	switch direction {
-	case elevio.MD_Up:
-		completedOrdersList = append(completedOrdersList, []int{floor, elevio.BT_HallUp})
-	case elevio.MD_Down:
-		completedOrdersList = append(completedOrdersList, []int{floor, elevio.BT_HallDown})
-	case elevio.MD_Stop:
-		completedOrdersList = append(completedOrdersList, []int{floor, elevio.BT_HallUp})
-		completedOrdersList = append(completedOrdersList, []int{floor, elevio.BT_HallDown})
+	case Direction(elevio.MD_Up):
+		completedOrdersList = append(completedOrdersList, []int{floor, int(elevio.BT_HallUp)})
+	case Direction(elevio.MD_Down):
+		completedOrdersList = append(completedOrdersList, []int{floor, int(elevio.BT_HallDown)})
+	case Direction(elevio.MD_Stop):
+		completedOrdersList = append(completedOrdersList, []int{floor, int(elevio.BT_HallUp)})
+		completedOrdersList = append(completedOrdersList, []int{floor, int(elevio.BT_HallDown)})
 	}
 	return completedOrdersList
 }
