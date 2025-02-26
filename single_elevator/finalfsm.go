@@ -57,6 +57,7 @@ func SingleElevator(
 	state := State{Direction: Down, Behaviour: Moving}
 
 	var OrderMatrix Orders //matrix for orders
+	var completedOrdersList [][]int //kolonne 1 er floor, kolonne 2 er button 
 
 	for {
 		//Watchdog??

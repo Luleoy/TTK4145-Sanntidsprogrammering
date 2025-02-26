@@ -71,15 +71,15 @@ func ordersBelow(orders Orders, floor int) bool {
 func OrderCompletedatCurrentFloor(floor int, direction Direction, OrderMatrix Orders) [][]int {
 	//lage liste over det vi skal fjerne
 	var completedOrdersList [][]int //kolonne 1 er floor, kolonne 2 er button
-	completedOrdersList.append(floor, elevio.BT_CAB)
+	completedOrdersList = append(completedOrdersList, []int{floor, elevio.BT_Cab})
 	switch direction {
 	case elevio.MD_Up:
-		completedOrdersList.append(floor, elevio.BT_HallUp)
+		completedOrdersList = append(completedOrdersList, []int{floor, elevio.BT_HallUp})
 	case elevio.MD_Down:
-		completedOrdersList.append(floor, elevio.BT_HallDown)
+		completedOrdersList = append(completedOrdersList, []int{floor, elevio.BT_HallDown})
 	case elevio.MD_Stop:
-		completedOrdersList.append(floor, elevio.BT_HallUp)
-		completedOrdersList.append(floor, elevio.BT_HallDown)
+		completedOrdersList = append(completedOrdersList, []int{floor, elevio.BT_HallUp})
+		completedOrdersList = append(completedOrdersList, []int{floor, elevio.BT_HallDown})
 	}
 	return completedOrdersList
 }
