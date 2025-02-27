@@ -33,7 +33,7 @@ func main() {
 	default:
 		panic("OS not supported")
 	}
-
+//verdensbilde eks
 	input := HRAInput{
 		HallRequests: [][2]bool{{false, false}, {true, false}, {false, false}, {false, true}},
 		States: map[string]HRAElevState{

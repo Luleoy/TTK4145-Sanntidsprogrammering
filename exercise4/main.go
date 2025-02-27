@@ -9,33 +9,40 @@ import (
 	"time"
 )
 
+
 const BackupAddress = "localhost:8080"
 const ListenAddr = "localhost:8080"
 const Timeout = 2 * time.Second
 
 func main() {
 	// ------ BACKUP MODE ------ //
-	// Connect to socket
+	// Connect to socket, starter og lytter til master
+
+
 	addr, err := net.ResolveUDPAddr("udp", ListenAddr)
 	if err != nil {
 		fmt.Println("Error resolving address", err)
 		return
 	}
 
+
+	//start lytting på udp- port
 	conn, err := net.ListenUDP("udp", addr)
 	if err != nil {
 		fmt.Println("Error listening for UDP:", err)
 		return
 	}
-	defer conn.Close()
+
+	defer conn.Close() //lukk tilkobling når program avsluttet
+
 
 	fmt.Println("Backup listening for heartbeat...")
 	buf := make([]byte, 1024)
 	count := 0
 
-	// Listen to heartbeats
+	// Listen to heartbeats in loop
 	for {
-		conn.SetReadDeadline(time.Now().Add(Timeout))
+		conn.SetReadDeadline(time.Now().Add(Timeout)) //hvis ikke melding før timeout, antar master død
 
 		n, _, err := conn.ReadFromUDP(buf)
 		if err != nil {
@@ -52,7 +59,7 @@ func main() {
 
 	// ------ TAKE OVER ------ //
 
-	conn.Close()
+	conn.Close()// stenger gammel tilkobling 
 
 	// Start backup in new terminal
 
@@ -65,20 +72,22 @@ func main() {
 		return
 	}
 
+	//setter opp en ny udp_tilkobling for å sende heartbeats til neste backup
 	backupAddr, err := net.ResolveUDPAddr("udp", BackupAddress)
 	if err != nil {
 		fmt.Println("Failed to resolve backup address:", err)
 		os.Exit(1)
 	}
 
-	conn, err = net.DialUDP("udp", nil, backupAddr)
+	conn, err = net.DialUDP("udp", nil, backupAddr)// oppdretter en ny forbindelse for å sende ut heartbeats
 	if err != nil {
 		fmt.Println("Failed to connect to backup process:", err)
 		os.Exit(1)
 	}
 	defer conn.Close()
 
-	// ------- PRIMARY MODE ------- //
+	// ------- PRIMARY MODE ------- //ny master og sender ut heartbeats
+	
 
 	count++
 	for {
