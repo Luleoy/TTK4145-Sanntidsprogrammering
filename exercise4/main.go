@@ -55,8 +55,10 @@ func main() {
 	conn.Close()
 
 	// Start backup in new terminal
-	BackupFilePath := "NTNU/Sanntid/Exercises/Exercise4/main.go"
-	cmd := exec.Command("osascript", "-e", `tell app "Terminal" to do script "go run `+BackupFilePath+`"`)
+
+	BackupFilePath := "~/Documents/nyheismonster/TTK4145-Sanntidsprogrammering/exercise4/main.go"
+
+	cmd := exec.Command("gnome-terminal", "--", "bash", "-c", "go run "+BackupFilePath+"; exec bash")
 	error := cmd.Start()
 	if error != nil {
 		fmt.Println("Failed to start backup process:", err)
