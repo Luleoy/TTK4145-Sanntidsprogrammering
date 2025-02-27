@@ -15,35 +15,9 @@ func SetLights(orderMatrix Orders) { //skru av og på lys
 
 type Orders [configuration.NumFloors][configuration.NumButtons]bool //creating matrix to take orders. floors*buttons
 
-// getorderincurrentdirection
-func (OrderMatrix Orders) OrderinCurrentDirection(floor int, direction Direction) bool {
-	switch direction {
-	case Up:
-		for f := floor + 1; f < configuration.NumFloors; f++ {
-			for b := 0; b < configuration.NumButtons; b++ {
-				if OrderMatrix[f][b] {
-					return true
-				}
-			}
-		}
-		return false
-	case Down:
-		for f := 0; f < floor; f++ {
-			for b := 0; b < configuration.NumButtons; b++ {
-				if OrderMatrix[f][b] {
-					return true
-				}
-			}
-		}
-		return false
-	default:
-		panic("Invalid direction")
-	}
-}
-
 func orderHere(orders Orders, floor int) bool {
 	for b := 0; b < configuration.NumButtons; b++ {
-		if orders[floor][b] == true { // Hvis det finnes en aktiv forespørsel
+		if orders[floor][b] { // Hvis det finnes en aktiv forespørsel
 			return true
 		}
 	}
@@ -68,18 +42,76 @@ func ordersBelow(orders Orders, floor int) bool {
 	return false
 }
 
-// er syntax riktig her??
-func OrderCompletedatCurrentFloor(floor int, direction Direction) [][]int {
-	var completedOrdersList [][]int //kolonne 1 er floor, kolonne 2 er button - list som skal sendes til ordermanager med fullførte bestillinger
-	completedOrdersList = append(completedOrdersList, []int{floor, int(elevio.BT_Cab)})
+func OrderCompletedatCurrentFloor(floor int, direction Direction, completedOrderChannel chan<- elevio.ButtonEvent) {
+	completedOrderChannel <- elevio.ButtonEvent{Floor: floor, Button: elevio.BT_Cab}
 	switch direction {
 	case Direction(elevio.MD_Up):
-		completedOrdersList = append(completedOrdersList, []int{floor, int(elevio.BT_HallUp)})
+		completedOrderChannel <- elevio.ButtonEvent{Floor: floor, Button: elevio.BT_HallUp}
 	case Direction(elevio.MD_Down):
-		completedOrdersList = append(completedOrdersList, []int{floor, int(elevio.BT_HallDown)})
+		completedOrderChannel <- elevio.ButtonEvent{Floor: floor, Button: elevio.BT_HallDown}
 	case Direction(elevio.MD_Stop):
-		completedOrdersList = append(completedOrdersList, []int{floor, int(elevio.BT_HallUp)})
-		completedOrdersList = append(completedOrdersList, []int{floor, int(elevio.BT_HallDown)})
+		completedOrderChannel <- elevio.ButtonEvent{Floor: floor, Button: elevio.BT_HallUp}
+		completedOrderChannel <- elevio.ButtonEvent{Floor: floor, Button: elevio.BT_HallDown}
 	}
-	return completedOrdersList
+}
+
+func OrderManager(newOrderChannel chan<- Orders,
+	completedOrderChannel <-chan elevio.ButtonEvent, //sende-kanal
+	//newLocalStateChannel <-chan State, //sende-kanal - NÅR SKAL DENNE BRUKES?
+	buttonPressedChannel <-chan elevio.ButtonEvent) { //kun lesing av kanal
+	OrderMatrix := [configuration.NumFloors][configuration.NumButtons]bool{}
+	for {
+		select {
+		case buttonPressed := <-buttonPressedChannel:
+			OrderMatrix[buttonPressed.Floor][buttonPressed.Button] = true
+			SetLights(OrderMatrix)
+			newOrderChannel <- OrderMatrix
+		case ordercompletedbyfsm := <-completedOrderChannel:
+			OrderMatrix[ordercompletedbyfsm.Floor][ordercompletedbyfsm.Button] = false
+			SetLights(OrderMatrix)
+			newOrderChannel <- OrderMatrix
+		}
+	}
+}
+
+type DirectionBehaviourPair struct {
+	Direction elevio.MotorDirection
+	Behaviour Behaviour //vi skal hente ut Behaviour (moving, idle, dooropen)
+}
+
+func ordersChooseDirection(floor int, direction Direction, OrderMatrix Orders) DirectionBehaviourPair {
+	switch direction {
+	case Up:
+		if ordersAbove(OrderMatrix, floor) {
+			return DirectionBehaviourPair{elevio.MD_Up, Moving}
+		} else if orderHere(OrderMatrix, floor) {
+			return DirectionBehaviourPair{elevio.MD_Down, DoorOpen}
+		} else if ordersBelow(OrderMatrix, floor) {
+			return DirectionBehaviourPair{elevio.MD_Down, Moving}
+		} else {
+			return DirectionBehaviourPair{elevio.MD_Stop, Idle}
+		}
+	case Down:
+		if ordersBelow(OrderMatrix, floor) {
+			return DirectionBehaviourPair{elevio.MD_Down, Moving}
+		} else if orderHere(OrderMatrix, floor) {
+			return DirectionBehaviourPair{elevio.MD_Up, DoorOpen}
+		} else if ordersAbove(OrderMatrix, floor) {
+			return DirectionBehaviourPair{elevio.MD_Up, Moving}
+		} else {
+			return DirectionBehaviourPair{elevio.MD_Stop, Idle}
+		}
+	case Stop:
+		if orderHere(OrderMatrix, floor) {
+			return DirectionBehaviourPair{elevio.MD_Stop, DoorOpen}
+		} else if ordersAbove(OrderMatrix, floor) {
+			return DirectionBehaviourPair{elevio.MD_Up, Moving}
+		} else if ordersBelow(OrderMatrix, floor) {
+			return DirectionBehaviourPair{elevio.MD_Down, Moving}
+		} else {
+			return DirectionBehaviourPair{elevio.MD_Stop, Idle}
+		}
+	default:
+		return DirectionBehaviourPair{elevio.MD_Stop, Idle}
+	}
 }

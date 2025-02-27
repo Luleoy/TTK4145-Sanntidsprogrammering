@@ -3,6 +3,8 @@ package single_elevator
 import (
 	"TTK4145-Heislab/configuration"
 	"TTK4145-Heislab/driver-go/elevio"
+	"fmt"
+	"time"
 )
 
 type State struct { //the elevators current state
@@ -34,110 +36,134 @@ func (behaviour Behaviour) ToString() string {
 	}
 }
 
-var timerOutChannel = make(chan bool)
-func startTimer(duration configuration.DoorOpenDuration) {
-	go func() {
-		time.Sleep(duration)
-		timerOutChannel <- true
-	}()
+func runTimer(duration time.Duration, timeOutChannel chan<- bool, resetTimerChannel <-chan bool) {
+	deadline := time.Now().Add(100000 * time.Hour)
+	is_running := false
+
+	for {
+		select {
+		case <-resetTimerChannel:
+			deadline = time.Now().Add(duration)
+			is_running = true
+		default:
+			if is_running && time.Since(deadline) > 0 {
+				timeOutChannel <- true
+				is_running = false
+			}
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
 }
 
-
 //WHERE TO UPDATE FLOOR - updating on channel at all times.
-//resetting av TIMER ved dooropen ++++
 
 func SingleElevator(
 	newOrderChannel <-chan Orders, //receiving new orders FROM ORDER MANAGER
 	completedOrderChannel chan<- elevio.ButtonEvent, //sending information about completed orders TO ORDER MANAGER
 	newLocalStateChannel chan<- State, //sending information about the elevators current state TO ORDER MANAGER
 ) {
-
-	//creating channels for communication
-	resetTimerChannel := make(chan bool)
-	timerOutChannel := make(chan bool)
-	floorEnteredChannel := make(chan int) //tells which floor elevator is at
-	obstructedChannel := make(chan bool, 16)
-
-	//starting go-routines for foor and floorsensor
-	go Door(obstructedChannel, timerOutChannel, resetTimerChannel) //MÅ FIKSES OPP I
-	go elevio.PollFloorSensor(floorEnteredChannel)
-
-	//initializing elevator to go down
+	fmt.Println("setting motor down")
 	elevio.SetMotorDirection(elevio.MD_Down)
 	state := State{Direction: Down, Behaviour: Moving}
 
-	var OrderMatrix Orders //matrix for orders
-	var completedOrdersList [][]int //kolonne 1 er floor, kolonne 2 er button 
+	//creating channels for communication
+	floorEnteredChannel := make(chan int) //tells which floor elevator is at
+	obstructedChannel := make(chan bool, 16)
+	stopPressedChannel := make(chan bool, 16)
 
-	//timeroutchannel - må sende en verdi til den noe sted 
+	//starting go-routines for foor and floorsensor
+	go elevio.PollFloorSensor(floorEnteredChannel)
+
+	timerOutChannel := make(chan bool)
+	resetTimerChannel := make(chan bool)
+	go runTimer(configuration.DoorOpenDuration, timerOutChannel, resetTimerChannel)
+	// go startTimer(configuration.DoorOpenDuration, timerOutChannel)
+
+	go elevio.PollObstructionSwitch(obstructedChannel)
+	go elevio.PollStopButton(stopPressedChannel)
+
+	var OrderMatrix Orders //matrix for orders
 
 	for {
 		//Watchdog??
 		select {
-		case <-timerOutChannel:
+		case <-timerOutChannel: //timeroutchannel - må sende en verdi til den noe sted!!
 			switch state.Behaviour {
 			case DoorOpen:
-				elevio.SetDoorOpenLamp(true)
-				startTimer(configuration.DoorOpenDuration)
-				//hvis på vei nedover og ser at order above, kommer den nå til å utføre det.
-				if ordersAbove(OrderMatrix, state.Floor) || state.Direction == Up {
-					elevio.SetMotorDirection(elevio.MD_Up)
-					state.Behaviour = Moving
-				}
-				if ordersBelow(OrderMatrix, state.Floor) || state.Direction == Down {
-					elevio.SetMotorDirection(elevio.MD_Down)
-					state.Behaviour = Moving
-				}
-				if orderHere(OrderMatrix, state.Floor) {
-					state.Behaviour = DoorOpen
-				} else {
-					state.Behaviour = Idle
+				DirectionBehaviourPair := ordersChooseDirection(state.Floor, state.Direction, OrderMatrix)
+				state.Behaviour = DirectionBehaviourPair.Behaviour
+				//elevio.SetMotorDirection(DirectionBehaviourPair.Direction)
+				switch state.Behaviour {
+				case DoorOpen:
+					//start timer på nytt og rydd forespørsler i nåværende etasje
+					resetTimerChannel <- true
+					OrderCompletedatCurrentFloor(state.Floor, Direction(state.Direction.convertMD()), completedOrderChannel) //requests cleared
+				case Moving, Idle:
+					elevio.SetDoorOpenLamp(false)
+					elevio.SetMotorDirection(DirectionBehaviourPair.Direction)
 				}
 			case Moving:
-				// what? crash program???
+				panic("timeroutchannel in moving")
 			}
-			//OBSTRUCTION MÅ HÅNDTERE ALT 
-		case obstr := <-obstructedChannel:
-			// updatedState = gotNewObstruction(state, obstr);
-			state.Obstructed = obstr
+		case stopbuttonpressed := <-stopPressedChannel:
+			if stopbuttonpressed {
+				fmt.Println("StopButton is pressed")
+				elevio.SetStopLamp(true)
+				elevio.SetMotorDirection(elevio.MD_Stop)
+			} else {
+				elevio.SetStopLamp(false)
+			}
+		//OBSTRUCTION MÅ HÅNDTERE ALT
+		case state.Obstructed = <-obstructedChannel:
 			switch state.Behaviour {
-			case Moving:
-				continue
 			case DoorOpen:
-				if obstr {
-					elevio.SetDoorOpenLamp(true)
-					startTimer(configuration.DoorOpenDuration)
-				}
-			case Idle:
+				// startTimer(configuration.DoorOpenDuration, timerOutChannel)
+				resetTimerChannel <- true
+				fmt.Println("Obstruction switch ON")
+				newLocalStateChannel <- state
+			case Moving, Idle:
 				continue
 			}
-			//CASE OBSTRUCTED 
 		case state.Floor = <-floorEnteredChannel: //if order at current floor
+			fmt.Println("New floor: ", state.Floor)
 			elevio.SetFloorIndicator(state.Floor)
 			//sjekker om vi har bestillinger i state.Floor, if yes. stop. and clear floor orders
-
 			switch state.Behaviour {
 			case Moving:
-				if orderHere(OrderMatrix, state.Floor) {
+				if orderHere(OrderMatrix, state.Floor) || state.Floor == 0 || state.Floor == configuration.NumFloors-1 {
 					elevio.SetMotorDirection(elevio.MD_Stop)
-					completedOrdersList = OrderCompletedatCurrentFloor(state.Floor, Direction(state.Direction.convertMD()))
-					Door() //WE NEED TO FIX THE DOOR
-					//requests cleared 
+					OrderCompletedatCurrentFloor(state.Floor, Direction(state.Direction.convertMD()), completedOrderChannel) //requests cleared
+					// startTimer(configuration.DoorOpenDuration, timerOutChannel)
+					resetTimerChannel <- true
 					state.Behaviour = DoorOpen
-					//oppdatere sånn at vi kan sende på kanalen at completedorder 
-					for completedOrder in completedOrdersList {
-						completedOrderChannel <- completedOrder
-					}
 				}
 			default:
 			}
-		case newOrder := <-newOrderChannel:
-			//her håndterer vi hvordan motoren skal kjøre og i hvilken retning etc. Buttonpressed maybe baby
-			//få heisen til å gå til order fra order matrix - se hva fra timer vi kan bruke i denne istedenfor 
+		case OrderMatrix = <-newOrderChannel:
+			fmt.Println("New orders :)")
+			switch state.Behaviour {
+			case Idle:
+				state.Behaviour = Moving
+				DirectionBehaviourPair := ordersChooseDirection(state.Floor, state.Direction, OrderMatrix)
+				state.Behaviour = DirectionBehaviourPair.Behaviour
+				elevio.SetMotorDirection(DirectionBehaviourPair.Direction)
+				switch state.Behaviour {
+				case DoorOpen:
+					//start timer på nytt og rydd forespørsler i nåværende etasje
+					resetTimerChannel <- true
+					OrderCompletedatCurrentFloor(state.Floor, Direction(state.Direction.convertMD()), completedOrderChannel) //requests cleared
+				case Moving, Idle:
+					elevio.SetDoorOpenLamp(false)
+					elevio.SetMotorDirection(DirectionBehaviourPair.Direction)
+				}
+			}
 		}
+		elevio.SetDoorOpenLamp(state.Behaviour == DoorOpen)
 	}
 }
 
-
-//DOOR - SETTE PÅ DOOROPEN LAMP OG STARTE EN TIMER 
-//OBSTRUCTION I FSM MÅ HÅNDTERE DET 
+/*
+last direction - må oppdateres
+watchdogtimer?
+default/panic bør det implementeres over alt?
+*/
