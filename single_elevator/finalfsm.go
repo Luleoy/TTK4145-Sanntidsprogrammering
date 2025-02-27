@@ -62,6 +62,7 @@ func SingleElevator(
 	completedOrderChannel chan<- elevio.ButtonEvent, //sending information about completed orders TO ORDER MANAGER
 	newLocalStateChannel chan<- State, //sending information about the elevators current state TO ORDER MANAGER
 ) {
+	//Initialization of elevator
 	fmt.Println("setting motor down")
 	elevio.SetMotorDirection(elevio.MD_Down)
 	state := State{Direction: Down, Behaviour: Moving}
@@ -92,6 +93,7 @@ func SingleElevator(
 			case DoorOpen:
 				DirectionBehaviourPair := ordersChooseDirection(state.Floor, state.Direction, OrderMatrix)
 				state.Behaviour = DirectionBehaviourPair.Behaviour
+				state.Direction = Direction(DirectionBehaviourPair.Direction)
 				//elevio.SetMotorDirection(DirectionBehaviourPair.Direction)
 				switch state.Behaviour {
 				case DoorOpen:
@@ -113,11 +115,9 @@ func SingleElevator(
 			} else {
 				elevio.SetStopLamp(false)
 			}
-		//OBSTRUCTION MÅ HÅNDTERE ALT
 		case state.Obstructed = <-obstructedChannel:
 			switch state.Behaviour {
 			case DoorOpen:
-				// startTimer(configuration.DoorOpenDuration, timerOutChannel)
 				resetTimerChannel <- true
 				fmt.Println("Obstruction switch ON")
 				newLocalStateChannel <- state
@@ -133,7 +133,6 @@ func SingleElevator(
 				if orderHere(OrderMatrix, state.Floor) || state.Floor == 0 || state.Floor == configuration.NumFloors-1 {
 					elevio.SetMotorDirection(elevio.MD_Stop)
 					OrderCompletedatCurrentFloor(state.Floor, Direction(state.Direction.convertMD()), completedOrderChannel) //requests cleared
-					// startTimer(configuration.DoorOpenDuration, timerOutChannel)
 					resetTimerChannel <- true
 					state.Behaviour = DoorOpen
 				}
@@ -146,7 +145,8 @@ func SingleElevator(
 				state.Behaviour = Moving
 				DirectionBehaviourPair := ordersChooseDirection(state.Floor, state.Direction, OrderMatrix)
 				state.Behaviour = DirectionBehaviourPair.Behaviour
-				elevio.SetMotorDirection(DirectionBehaviourPair.Direction)
+				state.Direction = Direction(DirectionBehaviourPair.Direction)
+				//elevio.SetMotorDirection(DirectionBehaviourPair.Direction)
 				switch state.Behaviour {
 				case DoorOpen:
 					//start timer på nytt og rydd forespørsler i nåværende etasje
@@ -163,7 +163,11 @@ func SingleElevator(
 }
 
 /*
-last direction - må oppdateres
 watchdogtimer?
 default/panic bør det implementeres over alt?
+
+clear lights at the beginning
+obstruction
+doesnt know its in between two floors when stopping in between two floors
+printer new orders selv om vi ikke har noen orders?
 */

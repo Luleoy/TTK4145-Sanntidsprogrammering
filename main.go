@@ -37,7 +37,6 @@ func main() {
 
 	// newOrderChannel <- exampleOrder
 
-
 	//go order manager
 
 	// Start polling inputs
@@ -46,7 +45,7 @@ func main() {
 	// go elevio.PollObstructionSwitch(drv_obstr) gjort
 	// go elevio.PollStopButton(drv_stop) gjort
 
-	select{}
+	select {}
 }
 
 /*
