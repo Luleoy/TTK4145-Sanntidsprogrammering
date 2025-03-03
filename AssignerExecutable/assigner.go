@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os/exec"
 	"runtime"
+	"strconv"
 )
 
 // Struct members must be public in order to be accessible by json.Marshal/.Unmarshal
@@ -22,6 +23,19 @@ type HRAInput struct {
 	States       map[string]HRAElevState `json:"states"`
 }
 
+func Funksjonsnavn(commonstate distributor.CommonState, id int) single_elevator.OrderMatrix {
+
+	stateMap := make(map[string]HRAElevState)
+	for i, v := range commonstate.State {
+		stateMap[strconv.Itoa(i)] = HRAElevState{
+			Behaviour:   v.State.Behaviour.ToString(),
+			Floor:       v.State.Floor,
+			Direction:   v.State.Direction.ToString(),
+			CabRequests: v.CabRequests,
+		}
+	}
+}
+
 func main() {
 
 	hraExecutable := ""
@@ -33,8 +47,14 @@ func main() {
 	default:
 		panic("OS not supported")
 	}
-//verdensbilde eks
-	input := HRAInput{
+
+	//verdensbilde eks
+	//valid state. broadcaste
+	//alle har samme verdensbilde, alle kjører samme algoritmen
+	//knappetrykk som order
+	//UDP broadcast example
+	//NEED TO GENERALIZE
+	/*input := HRAInput{
 		HallRequests: [][2]bool{{false, false}, {true, false}, {false, false}, {false, true}},
 		States: map[string]HRAElevState{
 			"one": HRAElevState{
@@ -50,7 +70,7 @@ func main() {
 				CabRequests: []bool{false, false, false, false},
 			},
 		},
-	}
+	}*/
 
 	jsonBytes, err := json.Marshal(input)
 	if err != nil {

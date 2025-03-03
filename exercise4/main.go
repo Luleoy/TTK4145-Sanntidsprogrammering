@@ -9,7 +9,6 @@ import (
 	"time"
 )
 
-
 const BackupAddress = "localhost:8080"
 const ListenAddr = "localhost:8080"
 const Timeout = 2 * time.Second
@@ -18,13 +17,11 @@ func main() {
 	// ------ BACKUP MODE ------ //
 	// Connect to socket, starter og lytter til master
 
-
 	addr, err := net.ResolveUDPAddr("udp", ListenAddr)
 	if err != nil {
 		fmt.Println("Error resolving address", err)
 		return
 	}
-
 
 	//start lytting på udp- port
 	conn, err := net.ListenUDP("udp", addr)
@@ -34,7 +31,6 @@ func main() {
 	}
 
 	defer conn.Close() //lukk tilkobling når program avsluttet
-
 
 	fmt.Println("Backup listening for heartbeat...")
 	buf := make([]byte, 1024)
@@ -59,11 +55,11 @@ func main() {
 
 	// ------ TAKE OVER ------ //
 
-	conn.Close()// stenger gammel tilkobling 
+	conn.Close() // stenger gammel tilkobling
 
 	// Start backup in new terminal
 
-	BackupFilePath := "~/Documents/nyheismonster/TTK4145-Sanntidsprogrammering/exercise4/main.go"
+	BackupFilePath := "~/Desktop/NewEra/TTK4145-Sanntidsprogrammering/exercise4/main.go" //MÅ ENDRE HER
 
 	cmd := exec.Command("gnome-terminal", "--", "bash", "-c", "go run "+BackupFilePath+"; exec bash")
 	error := cmd.Start()
@@ -79,7 +75,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	conn, err = net.DialUDP("udp", nil, backupAddr)// oppdretter en ny forbindelse for å sende ut heartbeats
+	conn, err = net.DialUDP("udp", nil, backupAddr) // oppdretter en ny forbindelse for å sende ut heartbeats
 	if err != nil {
 		fmt.Println("Failed to connect to backup process:", err)
 		os.Exit(1)
@@ -87,7 +83,6 @@ func main() {
 	defer conn.Close()
 
 	// ------- PRIMARY MODE ------- //ny master og sender ut heartbeats
-	
 
 	count++
 	for {

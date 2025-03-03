@@ -80,6 +80,26 @@ func SingleElevator(
 	go runTimer(configuration.DoorOpenDuration, timerOutChannel, resetTimerChannel)
 	// go startTimer(configuration.DoorOpenDuration, timerOutChannel)
 
+	/*
+		resetWatchdogChannel := make(chan bool)
+		go func() {
+			timeout := 3 * time.Second
+			deadline := time.Now().Add(timeout)
+
+			for {
+				select {
+				case <-resetWatchdogChannel:
+					deadline = time.Now().Add(timeout)
+				default:
+					if time.Now().After(deadline) {
+						fmt.Println("Watchdog timer expired! Restarting elevator")
+						go SingleElevator(newOrderChannel, completedOrderChannel, newLocalStateChannel)
+					}
+				}
+				time.Sleep(100 * time.Millisecond)
+			}
+		}() */
+
 	go elevio.PollObstructionSwitch(obstructedChannel)
 	go elevio.PollStopButton(stopPressedChannel)
 
@@ -89,25 +109,29 @@ func SingleElevator(
 		//Watchdog??
 		select {
 		case <-timerOutChannel: //timeroutchannel - må sende en verdi til den noe sted!!
+			//resetWatchdogChannel <- true
 			switch state.Behaviour {
 			case DoorOpen:
 				DirectionBehaviourPair := ordersChooseDirection(state.Floor, state.Direction, OrderMatrix)
 				state.Behaviour = DirectionBehaviourPair.Behaviour
 				state.Direction = Direction(DirectionBehaviourPair.Direction)
-				//elevio.SetMotorDirection(DirectionBehaviourPair.Direction)
+				newLocalStateChannel <- state
 				switch state.Behaviour {
 				case DoorOpen:
 					//start timer på nytt og rydd forespørsler i nåværende etasje
 					resetTimerChannel <- true
 					OrderCompletedatCurrentFloor(state.Floor, Direction(state.Direction.convertMD()), completedOrderChannel) //requests cleared
+					newLocalStateChannel <- state
 				case Moving, Idle:
 					elevio.SetDoorOpenLamp(false)
 					elevio.SetMotorDirection(DirectionBehaviourPair.Direction)
+
 				}
 			case Moving:
 				panic("timeroutchannel in moving")
 			}
 		case stopbuttonpressed := <-stopPressedChannel:
+			//resetWatchdogChannel <- true
 			if stopbuttonpressed {
 				fmt.Println("StopButton is pressed")
 				elevio.SetStopLamp(true)
@@ -116,15 +140,17 @@ func SingleElevator(
 				elevio.SetStopLamp(false)
 			}
 		case state.Obstructed = <-obstructedChannel:
+			//resetWatchdogChannel <- true
 			switch state.Behaviour {
 			case DoorOpen:
 				resetTimerChannel <- true
 				fmt.Println("Obstruction switch ON")
-				newLocalStateChannel <- state
+				newLocalStateChannel <- state //NEW LOCAL STATE MÅ OPPDATERES OVERALT
 			case Moving, Idle:
 				continue
 			}
 		case state.Floor = <-floorEnteredChannel: //if order at current floor
+			//resetWatchdogChannel <- true
 			fmt.Println("New floor: ", state.Floor)
 			elevio.SetFloorIndicator(state.Floor)
 			//sjekker om vi har bestillinger i state.Floor, if yes. stop. and clear floor orders
@@ -135,10 +161,13 @@ func SingleElevator(
 					OrderCompletedatCurrentFloor(state.Floor, Direction(state.Direction.convertMD()), completedOrderChannel) //requests cleared
 					resetTimerChannel <- true
 					state.Behaviour = DoorOpen
+					newLocalStateChannel <- state
+					fmt.Println("New local state:", state)
 				}
 			default:
 			}
 		case OrderMatrix = <-newOrderChannel:
+			//resetWatchdogChannel <- true
 			fmt.Println("New orders :)")
 			switch state.Behaviour {
 			case Idle:
@@ -146,12 +175,14 @@ func SingleElevator(
 				DirectionBehaviourPair := ordersChooseDirection(state.Floor, state.Direction, OrderMatrix)
 				state.Behaviour = DirectionBehaviourPair.Behaviour
 				state.Direction = Direction(DirectionBehaviourPair.Direction)
+				newLocalStateChannel <- state
 				//elevio.SetMotorDirection(DirectionBehaviourPair.Direction)
 				switch state.Behaviour {
 				case DoorOpen:
 					//start timer på nytt og rydd forespørsler i nåværende etasje
 					resetTimerChannel <- true
 					OrderCompletedatCurrentFloor(state.Floor, Direction(state.Direction.convertMD()), completedOrderChannel) //requests cleared
+					newLocalStateChannel <- state
 				case Moving, Idle:
 					elevio.SetDoorOpenLamp(false)
 					elevio.SetMotorDirection(DirectionBehaviourPair.Direction)
@@ -163,11 +194,10 @@ func SingleElevator(
 }
 
 /*
-watchdogtimer?
+Hva må ryddes opp i:
+watchdogtimer? - hakker, og går out of range
 default/panic bør det implementeres over alt?
-
-clear lights at the beginning
-obstruction
+obstruction - ??
 doesnt know its in between two floors when stopping in between two floors
 printer new orders selv om vi ikke har noen orders?
 */

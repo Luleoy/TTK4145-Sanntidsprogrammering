@@ -74,6 +74,10 @@ func OrderManager(newOrderChannel chan<- Orders,
 	}
 }
 
+//output fra hallrequest assigner som skal sendes inn i ordermanager
+//vi har enere allerede. er ikke "nye orders" men heller orders in general
+//hall request assigner skal kjøres kontinuerlig
+
 type DirectionBehaviourPair struct {
 	Direction elevio.MotorDirection
 	Behaviour Behaviour //vi skal hente ut Behaviour (moving, idle, dooropen)
