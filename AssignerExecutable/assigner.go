@@ -1,6 +1,8 @@
 package main
 
 import (
+	"TTK4145-Heislab/communication"
+	"TTK4145-Heislab/single_elevator"
 	"encoding/json"
 	"fmt"
 	"os/exec"
@@ -24,7 +26,7 @@ type HRAInput struct {
 }
 
 // legger til alt fra assigner filen inn i en funksjon slik at den kan kontinuerlig kalles på
-func CalculateOptimalOrders(commonstate distributor.CommonState, id int) single_elevator.OrderMatrix {
+func Assigner(commonstate communication.CommonState, id int) single_elevator.OrderMatrix { //skal det stå single elevator her eller ikke?
 
 	stateMap := make(map[string]HRAElevState)
 	for i, v := range commonstate.State {
@@ -77,7 +79,17 @@ func CalculateOptimalOrders(commonstate distributor.CommonState, id int) single_
 
 	//må returnere ID siden vi skal bestemme hvilken heis som skal ta orderen
 	return (*output)[strconv.Itoa(id)]
+
+	//convert output to matrix sånn at dette kan tas rett inn i order manager
 }
+
+/*OUTPUT FRA HALL ASSIGNER - må sendes til order manager. Order manager må legge sammen egen matrise med matrise fra hall assigner. 1+1 skal ikke bli 2.
+må sende hver av linjene til riktig heis. i order manager konverterer vi fra string til ordermatrix
+{
+    "0": [[false, true, false], [true, false, false], [false, false, true], [false, false, false]],
+    "1": [[false, false, false], [false, false, true], [true, false, false], [false, true, false]],
+    "2": [[true, false, false], [false, true, false], [false, false, true], [false, false, false]]
+}*/
 
 //main func removed
 
