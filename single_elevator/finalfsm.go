@@ -7,6 +7,7 @@ import (
 	"time"
 )
 
+// MÅ ENDRE NAVN FRA STATE TIL ELEVATOR: STATE ER MISVISENDE
 type State struct { //the elevators current state
 	Floor      int
 	Direction  Direction //directions: Up, Down

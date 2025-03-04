@@ -28,7 +28,9 @@ func main() {
 
 	// Start FSM
 	go elevio.PollButtons(buttonPressedChannel)
-	go single_elevator.OrderManager(newOrderChannel, completedOrderChannel, buttonPressedChannel)
+	
+	// go single_elevator.OrderManager(newOrderChannel, completedOrderChannel, buttonPressedChannel)
+	go order_manager.Run(newOrderChannel, completedOrderChannel, buttonPressedChannel, network_tx, network_rx)
 	go single_elevator.SingleElevator(newOrderChannel, completedOrderChannel, newLocalStateChannel)
 
 	// time.Sleep(10*time.Second)
