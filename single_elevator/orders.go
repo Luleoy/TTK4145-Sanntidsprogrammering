@@ -55,6 +55,8 @@ func OrderCompletedatCurrentFloor(floor int, direction Direction, completedOrder
 	}
 }
 
+/*
+order manager for single elevator
 func OrderManager(newOrderChannel chan<- Orders,
 	completedOrderChannel <-chan elevio.ButtonEvent, //sende-kanal
 	//newLocalStateChannel <-chan State, //sende-kanal - NÅR SKAL DENNE BRUKES?
@@ -72,7 +74,7 @@ func OrderManager(newOrderChannel chan<- Orders,
 			newOrderChannel <- OrderMatrix
 		}
 	}
-}
+}*/
 
 //output fra hallrequest assigner som skal sendes inn i ordermanager
 //vi har enere allerede. er ikke "nye orders" men heller orders in general

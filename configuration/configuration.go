@@ -13,7 +13,7 @@ const (
 	DisconnectTime   = 1 * time.Second
 	DoorOpenDuration = 3 * time.Second
 	WatchdogTime     = 5 * time.Second
-	SendWVTimer = 20 * time.Second
+	SendWVTimer      = 20 * time.Second
 )
 
 type RequestState int
@@ -24,3 +24,5 @@ const (
 	Confirmed
 	Complete
 )
+
+//legge typen i configuration. Lage kanalene de skal sendes på i main.g. structuren på hva som blir sendt på kanalen
