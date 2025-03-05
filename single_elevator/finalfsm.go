@@ -13,6 +13,7 @@ type State struct { //the elevators current state
 	Direction  Direction //directions: Up, Down
 	Obstructed bool
 	Behaviour  Behaviour //behaviours: Idle, Moving and DoorOpen
+	unavailable bool
 }
 
 type Behaviour int
@@ -63,6 +64,8 @@ func SingleElevator(
 	completedOrderChannel chan<- elevio.ButtonEvent, //sending information about completed orders TO ORDER MANAGER
 	newLocalStateChannel chan<- State, //sending information about the elevators current state TO ORDER MANAGER
 ) {
+
+
 	//Initialization of elevator
 	fmt.Println("setting motor down")
 	elevio.SetMotorDirection(elevio.MD_Down)
