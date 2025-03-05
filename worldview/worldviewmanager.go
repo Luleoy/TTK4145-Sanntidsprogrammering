@@ -70,6 +70,7 @@ func WorldViewHandler(
 	mergeChannel chan<- elevio.ButtonEvent,
 	//newOrderChannel chan<- Orders - fra OrderManager
 	completedOrderChannel <-chan elevio.ButtonEvent,
+	numPeersChannel <-chan int,
 
 ) {
 
@@ -79,10 +80,14 @@ func WorldViewHandler(
 
 	//timer for når Local World View skal oppdateres
 	SendLocalWorldViewTimer := time.NewTimer(time.Duration(configuration.SendWVTimer) * time.Millisecond)
+	numPeers:=0
 
 	for {
 	OuterLoop: //break ut av hele for-loopen
 		select {
+		case num:= <-numPeersChannel:
+			numPeers = num
+		
 		case <-SendLocalWorldViewTimer.C: //local world view updates
 			localWorldView.ID = elevatorID
 			WorldViewTXChannel <- *localWorldView

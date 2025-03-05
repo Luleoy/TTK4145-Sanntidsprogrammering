@@ -14,7 +14,8 @@ func CommunicationHandler(
 	peerUpdateChannel <-chan peers.PeerUpdate,
 	NewlocalElevatorChannel <-chan single_elevator.State,
 	peerTXEnableChannel chan<- bool,
-	assignedRequestsChannel chan<- map[string][][2]bool) {
+	assignedRequestsChannel chan<- map[string][][2]bool
+	numPeersChannel chan <- int) {
 
 	//initialisering
 	localWorldView := worldview.InitializeWorldView(elevatorID)
@@ -44,8 +45,9 @@ func CommunicationHandler(
 			fmt.Printf("  New:      %q\n", peers.New)
 			fmt.Printf("  Lost:     %q\n", peers.Lost)
 
-			//Oppdaterer aktive peers
+			//Oppdaterer aktive peers og sender det til channel
 			numPeers = len(peers.Peers)
+			numPeersChannel <-numPeers
 
 			//finer om tapt heis utilgjengelig
 			if localWorldView.ElevatorStatusList[peers.Lost[0]].unavailable { //her må det gjøres noe
